@@ -40,6 +40,29 @@ namespace VerifyEmailForgotPasswordTutorial.Controllers
 
             return Ok("User successfully created!");
         }
+
+        [HttpPost("login")]
+        public async Task<IActionResult> Login(UserLoginRequest request)
+        {
+            var user = await _context.Users.FirstOrDefaultAsync(p => p.Email == request.Email);
+            if (user == null) {
+                return BadRequest("User notfound");
+            }
+
+            if (!VerifyPasswordHash(request.Password, user.PasswordHash, user.PasswordSalt))
+            {
+                return BadRequest("Password is incorrect.");
+            }
+
+            if (user.VerifiedAt == null)
+            {
+                return BadRequest("Not verified!");
+            }
+
+            return Ok($"Welcome back, {user.Email}! :)");
+        }
+
+
         private void CreatePasswordHash(string password, out byte[] passwordHash, out byte[] passwordSalt)
         {
             using (var hmac = new HMACSHA512())
@@ -52,6 +75,15 @@ namespace VerifyEmailForgotPasswordTutorial.Controllers
         private string CreateRandomToken()
         {
             return Convert.ToHexString(RandomNumberGenerator.GetBytes(64));
+        }
+        private bool VerifyPasswordHash(string password, byte[] passwordHash, byte[] passwordSalt)
+        {
+            using (var hmac = new HMACSHA512(passwordSalt))
+            {
+                var computedHash = hmac
+                    .ComputeHash(System.Text.Encoding.UTF8.GetBytes(password));
+                return computedHash.SequenceEqual(passwordHash);
+            }
         }
     }
 
